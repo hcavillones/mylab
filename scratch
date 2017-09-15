@@ -1,0 +1,50 @@
+- name: Set Timezone for Debian/Ubuntu
+  shell: timedatectl set-timezone America/New_York
+  when: ansible_distribution == "Debian" or ansible_distribution == "Ubuntu"
+  tags: tz
+
+- name: Set Timezone using shell commands for RHEL/CentOS = <6.9
+  command: "{{ item }}"
+  with_items:
+   - cp /etc/localtime /root/old.timezone
+   - rm /etc/localtime
+   - ln -s /usr/share/zoneinfo/America/New_York /etc/localtime
+  when: ansible_distribution == "CentOS" and ansible_distribution_version == "6.9"
+  tags: tz
+
+- name: Install NTP for Debian/Ubuntu
+  apt:
+    name=ntp
+    state=latest
+
+  when: 'ansible_distribution == "Debian" or ansible_distribution == "Ubuntu"'
+  tags: ntp
+
+- name: Install NTP for Centos/RHEL
+  yum:
+    name=ntp
+    state=latest
+
+  when: 'ansible_distribution == "CentOS" or ansible_distribution == "Red Hat Enterprise Linux"'
+  tags: ntp
+
+- name: Copy over the NTP configuration
+  template:
+    src="./templates/ntp.conf"
+    dest="/etc/ntp.conf"
+
+- name: Restart NTP Daemon if CentOS and version 6.9 or lesser
+  shell:
+    /etc/init.d/ntpd restart
+  when:
+   - ansible_distribution == "CentOS"
+   - ansible_distribution_version <= "6.9"
+  tags: ntp
+
+- name: Restart NTP Daemon if CentOS greater than 6.9 or Debian or Ubuntu
+  shell:
+    systemctl restart ntp
+  when:
+   - ansible_distribution == "CentOS" and ansible_distribution_version > "6.9"
+   - ansible_distribution == "Debian" or ansible_distribution == "Ubuntu"
+  tags: ntp

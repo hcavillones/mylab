@@ -1,0 +1,59 @@
+- hosts: all
+  user: root
+
+  roles:
+    - role: ntp
+      ntp_driftfile: /var/lib/ntp/drift
+      ntp_restrict:
+        - "restrict default nomodify notrap nopeer noquery"
+        - "restrict 127.0.0.1"
+        - "restrict ::1"
+      ntp_server: "10.33.77.111 iburst"
+      ntp_includefile: /etc/ntp/crypto/pw
+      ntp_keys: /etc/ntp/keys
+
+    - { role: nrinfragent, nrinfragent_license_key: 4e0de20b32983db79e990a48051231c75680bcd0 }
+
+- hosts: management
+  user: root
+
+  tasks:
+    - name: Allow NTP traffic through firewall
+      shell: firewall-cmd --add-service=ntp --permanent
+
+    - name: firewall-reload
+      shell: firewall-cmd --reload
+
+    - name: Make sure Chrony is started up
+      service: name=chronyd state=started enabled=yes
+      tags: chrony
+
+- hosts: servers
+  user: root
+
+  tasks:
+
+    - name: Sync time initially for CentOS +6.9/Debian/Ubuntu
+      command: "{{ item }}"
+      with_items:
+        - systemctl stop ntp
+        - ntpdate 10.33.77.111
+        - systemctl start ntp
+      when:
+       - ansible_distribution == "CentOS" and ansible_distribution_version > "6.9"
+       - ansible_distribution == "Debian" or ansible_distribution == "Ubuntu"
+
+    - name: Sync time intiailly for CentOS/RHEL < 6.9
+      command: "{{ item }}"
+      with_items:
+        - /etc/init.d/ntpd stop
+        - ntpdate 10.33.77.111
+        - /etc/init.d/ntpd start
+      when:
+       - ansible_distribution == "CentOS"
+       - ansible_distribution_version <= "6.9"
+      tags: ntp
+
+    - name: Sync hwclock
+      shell: hwclock -w
+      tags: ntp
