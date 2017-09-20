@@ -8,11 +8,11 @@
         - "restrict default nomodify notrap nopeer noquery"
         - "restrict 127.0.0.1"
         - "restrict ::1"
-      ntp_server: "10.33.77.111 iburst"
+      ntp_server: "$time_server iburst"
       ntp_includefile: /etc/ntp/crypto/pw
       ntp_keys: /etc/ntp/keys
 
-    - { role: nrinfragent, nrinfragent_license_key: 4e0de20b32983db79e990a48051231c75680bcd0 }
+    - { role: nrinfragent, nrinfragent_license_key: $nr_license }
 
 - hosts: management
   user: root
@@ -37,7 +37,7 @@
       command: "{{ item }}"
       with_items:
         - systemctl stop ntp
-        - ntpdate 10.33.77.111
+        - ntpdate $time_server
         - systemctl start ntp
       when:
        - ansible_distribution == "CentOS" and ansible_distribution_version > "6.9"
@@ -47,7 +47,7 @@
       command: "{{ item }}"
       with_items:
         - /etc/init.d/ntpd stop
-        - ntpdate 10.33.77.111
+        - ntpdate $time_server
         - /etc/init.d/ntpd start
       when:
        - ansible_distribution == "CentOS"
